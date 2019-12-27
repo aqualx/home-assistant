@@ -28,6 +28,8 @@ import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
 
+CONF_IFACE = "iface"
+
 STATE_BOOST = "boost"
 
 ATTR_STATE_WINDOW_OPEN = "window_open"
@@ -59,7 +61,10 @@ HA_TO_EQ_PRESET = {PRESET_BOOST: eq3.Mode.Boost, PRESET_AWAY: eq3.Mode.Away}
 DEVICE_SCHEMA = vol.Schema({vol.Required(CONF_MAC): cv.string})
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {vol.Required(CONF_DEVICES): vol.Schema({cv.string: DEVICE_SCHEMA})}
+    {
+        vol.Required(CONF_DEVICES): vol.Schema({cv.string: DEVICE_SCHEMA}),
+        vol.Optional(CONF_IFACE, default=0): cv.positive_int,
+    }
 )
 
 SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
@@ -68,10 +73,14 @@ SUPPORT_FLAGS = SUPPORT_TARGET_TEMPERATURE | SUPPORT_PRESET_MODE
 def setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the eQ-3 BLE thermostats."""
     devices = []
+    
+    iface = iface=config.get(CONF_IFACE)    
+    if iface == 0:
+        iface = None
 
     for name, device_cfg in config[CONF_DEVICES].items():
         mac = device_cfg[CONF_MAC]
-        devices.append(EQ3BTSmartThermostat(mac, name))
+        devices.append(EQ3BTSmartThermostat(mac, name, iface))
 
     add_entities(devices, True)
 
@@ -79,11 +88,11 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 class EQ3BTSmartThermostat(ClimateDevice):
     """Representation of an eQ-3 Bluetooth Smart thermostat."""
 
-    def __init__(self, _mac, _name):
+    def __init__(self, _mac, _name, _iface=None):
         """Initialize the thermostat."""
         # We want to avoid name clash with this module.
         self._name = _name
-        self._thermostat = eq3.Thermostat(_mac)
+        self._thermostat = eq3.Thermostat(_mac, _iface)
 
     @property
     def supported_features(self):
